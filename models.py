@@ -2,15 +2,13 @@ import uuid
 import random
 
 class Player:
-    def __init__(self, session_id, username, is_admin=False, game_id=None):
+    def __init__(self, session_id, username, is_admin=False):
         self.session_id = session_id  # The unique socket ID for this connection
         self.username = username
         self.score = 0
         self.is_admin = is_admin
-        self.game_id = game_id
 
     def to_dict(self):
-        """Helper to convert player data to a dictionary for JSON responses."""
         return {
             "username": self.username,
             "score": self.score,
@@ -43,23 +41,20 @@ class Game:
     def __init__(self):
         self.id = str(uuid.uuid4())[:6].upper()  # Simple short ID
         self.creator_sid = None
-        self.players = {}  # session_id: Player
+        self.players: dict[str, Player] = {}  # session_id: Player
         self.is_game_active = False
         self.current_drawer = None
         self.current_word = ""
         self.guessed_players = set()
 
-    def add_player(self, session_id: str, username: str, is_admin: bool = False) -> Player:
+    def add_player(self, player: Player):
         """Oyuna yeni bir oyuncu ekler."""
         
-        if (is_admin and any(p.is_admin for p in self.players.values())):
-            is_admin = False
-
-        new_player = Player(session_id, username, is_admin)
-
-        self.players[new_player.session_id] = new_player
-        return new_player
-
+        if (player.is_admin and any(p.is_admin for p in self.players.values())):
+            player.is_admin = False
+            
+        self.players[player.session_id] = player
+    
     def remove_player(self, session_id):
         """Oyuncuyu oyundan çıkarır."""
         if session_id in self.players:

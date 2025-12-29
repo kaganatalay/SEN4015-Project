@@ -5,18 +5,13 @@ let isDrawer = false;
 let canvas, ctx;
 let drawing = false;
 
-document.getElementById("create-btn").addEventListener("click", createGame);
+document.getElementById("create-btn").addEventListener("click", joinGame);
 document.getElementById("join-btn").addEventListener("click", joinGame);
 document.getElementById("start-game-btn").addEventListener("click", startGame);
 document
   .getElementById("message-input")
   .addEventListener("keydown", sendMessage);
 document.getElementById("new-round-btn").addEventListener("click", startGame); // For simplicity
-
-function createGame() {
-  console.log("Emitting create_game");
-  socket.emit("create_game");
-}
 
 function joinGame() {
   const gameId = document.getElementById("join-game-id").value.toUpperCase();
@@ -41,22 +36,14 @@ function sendMessage(event) {
   }
 }
 
-socket.on("game_created", (data) => {
-  console.log("Received game_created", data);
+socket.on("game_joined", (data) => {
   currentGameId = data.game_id;
+  currentPlayer = data.player;
   document.getElementById("game-id").textContent = currentGameId;
   document.getElementById("login-screen").style.display = "none";
   document.getElementById("lobby").style.display = "block";
   document.getElementById("lobby-game-id").textContent = currentGameId;
-  document.getElementById("start-game-btn").style.display = "inline-block";
-});
-
-socket.on("game_joined", (data) => {
-  currentPlayer = data.player;
-  document.getElementById("login-screen").style.display = "none";
-  document.getElementById("lobby").style.display = "block";
-  document.getElementById("lobby-game-id").textContent = currentGameId;
-  if (data.is_admin) {
+  if (data.you.is_admin) {
     document.getElementById("start-game-btn").style.display = "inline-block";
   }
   updatePlayers(data.players);

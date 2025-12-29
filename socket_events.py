@@ -8,34 +8,32 @@ def connect():
     # User connected - no action needed
     pass
 
-# @socketio.on('create_game')
-# def create_game(data):
-#     sid = request.sid
-#     username = data['username']
-
-#     game = game_manager.create_game()
-#     join_room(game.id, sid)
-    
-#     game.add_player(sid, username, is_admin=True)
-#     emit('game_created', {'game_id': game.id}, room=sid)
-
 @socketio.on('join_game')
 def join_game(data):
     sid = getattr(request, 'sid')
     game_id = data['game_id'].upper()
     username = data['username']
+
+    player = Player(sid, username)
+
     game = game_manager.get_game(game_id)
-    if not game:
-        emit('error', {'message': 'Game not found'}, to=sid)
+    print("Found game ", game_id, ":", game)
+    if (game is None):
+        game = game_manager.create_game()
+        player.is_admin = True
+
+    if player.session_id in game.players:
+        emit('error', {'message': 'Already in game'}, to=player.session_id)
         return
-    if sid in game.players:
-        emit('error', {'message': 'Already in game'}, to=sid)
-        return
-    player = game.add_player(sid, username)
-    join_room(game_id, sid)
+    
+    game.add_player(player)
+    join_room(game.id, sid)
+
+    print("Games after join:", game_manager.games)
+
     emit('game_joined', {
-        'player': player.to_dict(),
-        'is_admin': player.is_admin,
+        'game_id': game.id,
+        'you': player.to_dict(),
         'players': game.get_all_players()
     }, to=sid)
     socketio.emit('update_players', {'players': game.get_all_players()}, to=game_id, skip_sid=sid)
@@ -96,6 +94,6 @@ def disconnect():
     for game in games_to_check:
         if sid in game.players:
             game.remove_player(sid)
-            socketio.emit('update_players', {'players': game.get_all_players()}, to=game.game_id)
+            socketio.emit('update_players', {'players': game.get_all_players()}, to=game.id)
             if len(game.players) == 0:
-                game_manager.delete_game(game.game_id)
+                game_manager.delete_game(game.id)
