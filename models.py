@@ -21,6 +21,8 @@ class Player:
         return f"<Player {self.username} (Admin: {self.is_admin})>"
 
 class Game:
+    """Class representating a single drawing and guessing game session."""
+
     WORDS = [
         "araba", "bilgisayar", "telefon", "uçak", "helikopter",
         "gemi", "bisiklet", "motosiklet", "tren", "otobüs",
@@ -39,20 +41,23 @@ class Game:
     ]
 
     def __init__(self):
-        self.game_id = str(uuid.uuid4())[:6].upper()  # Simple short ID
+        self.id = str(uuid.uuid4())[:6].upper()  # Simple short ID
+        self.creator_sid = None
         self.players = {}  # session_id: Player
         self.is_game_active = False
         self.current_drawer = None
         self.current_word = ""
         self.guessed_players = set()
 
-    def add_player(self, session_id, username):
+    def add_player(self, session_id: str, username: str, is_admin: bool = False) -> Player:
         """Oyuna yeni bir oyuncu ekler."""
-        # İlk gelen oyuncuyu otomatik admin yapalım
-        is_admin = (len(self.players) == 0)
+        
+        if (is_admin and any(p.is_admin for p in self.players.values())):
+            is_admin = False
 
-        new_player = Player(session_id, username, is_admin, self.game_id)
-        self.players[session_id] = new_player
+        new_player = Player(session_id, username, is_admin)
+
+        self.players[new_player.session_id] = new_player
         return new_player
 
     def remove_player(self, session_id):

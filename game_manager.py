@@ -1,15 +1,15 @@
-from models import Game
+from models import Game, Player
 
 class GameManager:
     def __init__(self):
         self.games = {}  # game_id: Game
 
-    def create_game(self):
+    def create_game(self) -> Game:
         """Yeni bir oyun oluştur ve ID'sini döndür."""
         new_game = Game()
-        self.games[new_game.game_id] = new_game
-        return new_game.game_id
-
+        self.games[new_game.id] = new_game
+        return new_game
+    
     def get_game(self, game_id):
         """Belirli bir oyun ID'sine ait oyunu döndür."""
         return self.games.get(game_id.upper())

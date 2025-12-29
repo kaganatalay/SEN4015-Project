@@ -1,6 +1,7 @@
 from flask import request
 from flask_socketio import emit, join_room, leave_room
 from extensions import socketio, game_manager
+from models import Player
 
 @socketio.on('connect')
 def connect():
@@ -8,11 +9,15 @@ def connect():
     pass
 
 @socketio.on('create_game')
-def create_game():
+def create_game(data):
     sid = request.sid
-    game_id = game_manager.create_game()
-    join_room(game_id, sid)
-    emit('game_created', {'game_id': game_id}, room=sid)
+    username = data['username']
+
+    game = game_manager.create_game()
+    join_room(game.id, sid)
+    
+    game.add_player(sid, username, is_admin=True)
+    emit('game_created', {'game_id': game.id}, room=sid)
 
 @socketio.on('join_game')
 def join_game(data):
