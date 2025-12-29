@@ -8,28 +8,28 @@ def connect():
     # User connected - no action needed
     pass
 
-@socketio.on('create_game')
-def create_game(data):
-    sid = request.sid
-    username = data['username']
+# @socketio.on('create_game')
+# def create_game(data):
+#     sid = request.sid
+#     username = data['username']
 
-    game = game_manager.create_game()
-    join_room(game.id, sid)
+#     game = game_manager.create_game()
+#     join_room(game.id, sid)
     
-    game.add_player(sid, username, is_admin=True)
-    emit('game_created', {'game_id': game.id}, room=sid)
+#     game.add_player(sid, username, is_admin=True)
+#     emit('game_created', {'game_id': game.id}, room=sid)
 
 @socketio.on('join_game')
 def join_game(data):
-    sid = request.sid
+    sid = getattr(request, 'sid')
     game_id = data['game_id'].upper()
     username = data['username']
     game = game_manager.get_game(game_id)
     if not game:
-        emit('error', {'message': 'Game not found'}, room=sid)
+        emit('error', {'message': 'Game not found'}, to=sid)
         return
     if sid in game.players:
-        emit('error', {'message': 'Already in game'}, room=sid)
+        emit('error', {'message': 'Already in game'}, to=sid)
         return
     player = game.add_player(sid, username)
     join_room(game_id, sid)
@@ -37,25 +37,25 @@ def join_game(data):
         'player': player.to_dict(),
         'is_admin': player.is_admin,
         'players': game.get_all_players()
-    }, room=sid)
-    socketio.emit('update_players', {'players': game.get_all_players()}, room=game_id, skip_sid=sid)
+    }, to=sid)
+    socketio.emit('update_players', {'players': game.get_all_players()}, to=game_id, skip_sid=sid)
 
 @socketio.on('start_game')
 def start_game(data):
-    sid = request.sid
+    sid = getattr(request, 'sid')
     game_id = data['game_id'].upper()
     game = game_manager.get_game(game_id)
     if not game or sid not in game.players or not game.players[sid].is_admin:
         return
     round_data = game.start_new_round()
     if not round_data:
-        emit('error', {'message': 'Not enough players'}, room=sid)
+        emit('error', {'message': 'Not enough players'}, to=sid)
         return
-    socketio.emit('game_started', round_data, room=game_id)
+    socketio.emit('game_started', round_data, to=game_id)
 
 @socketio.on('guess')
 def guess(data):
-    sid = request.sid
+    sid = getattr(request, 'sid')
     game_id = data['game_id'].upper()
     message = data['message']
     game = game_manager.get_game(game_id)
@@ -65,37 +65,37 @@ def guess(data):
     result = game.process_guess(sid, message)
     if result:
         if result['type'] == 'CHAT_MESSAGE':
-            socketio.emit('message', {'message': f"{player.username}: {message}"}, room=game_id)
+            socketio.emit('message', {'message': f"{player.username}: {message}"}, to=game_id)
         elif result['type'] == 'CORRECT_GUESS':
-            socketio.emit('correct_guess', {'player_name': result['player_name']}, room=game_id)
+            socketio.emit('correct_guess', {'player_name': result['player_name']}, to=game_id)
             if result['round_over']:
                 # For basic, just show popup
                 pass
 
 @socketio.on('draw_start')
 def draw_start(data):
-    sid = request.sid
+    sid = getattr(request, 'sid')
     game_id = data['game_id'].upper()
     x = data['x']
     y = data['y']
-    socketio.emit('draw_start', {'x': x, 'y': y}, room=game_id, skip_sid=sid)
+    socketio.emit('draw_start', {'x': x, 'y': y}, to=game_id, skip_sid=sid)
 
 @socketio.on('draw_line')
 def draw_line(data):
-    sid = request.sid
+    sid = getattr(request, 'sid')
     game_id = data['game_id'].upper()
     x = data['x']
     y = data['y']
-    socketio.emit('draw_line', {'x': x, 'y': y}, room=game_id, skip_sid=sid)
+    socketio.emit('draw_line', {'x': x, 'y': y}, to=game_id, skip_sid=sid)
 
 @socketio.on('disconnect')
 def disconnect():
-    sid = request.sid
+    sid = getattr(request, 'sid')
     # Remove from all games
     games_to_check = list(game_manager.games.values())
     for game in games_to_check:
         if sid in game.players:
             game.remove_player(sid)
-            socketio.emit('update_players', {'players': game.get_all_players()}, room=game.game_id)
+            socketio.emit('update_players', {'players': game.get_all_players()}, to=game.game_id)
             if len(game.players) == 0:
                 game_manager.delete_game(game.game_id)
