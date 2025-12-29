@@ -1,8 +1,9 @@
+import os
 from flask import Flask, jsonify, render_template
 from extensions import socketio, game_manager
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'cok-gizli-anahtar'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-secret-key-change-in-production')
 
 socketio.init_app(app)
 

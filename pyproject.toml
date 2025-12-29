@@ -1,7 +1,7 @@
 [project]
 name = "sen4015-project"
 version = "0.1.0"
-description = ""
+description = "A real-time drawing and guessing game built with Flask and SocketIO, inspired by games like Gartic.io"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [

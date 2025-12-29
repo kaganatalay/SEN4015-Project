@@ -2,20 +2,17 @@ from flask import request
 from flask_socketio import emit, join_room, leave_room
 from extensions import socketio, game_manager
 
-print("Socket events module loaded")
-
 @socketio.on('connect')
 def connect():
-    print(f"User connected with sid: {request.sid}")
+    # User connected - no action needed
+    pass
 
 @socketio.on('create_game')
 def create_game():
     sid = request.sid
-    print(f"Create game for sid: {sid}")
     game_id = game_manager.create_game()
     join_room(game_id, sid)
     emit('game_created', {'game_id': game_id}, room=sid)
-    print(f"Emitted game_created with {game_id}")
 
 @socketio.on('join_game')
 def join_game(data):
