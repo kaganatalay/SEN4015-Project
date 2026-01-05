@@ -1,4 +1,4 @@
-from models import Game, Player
+from src.models import Game
 
 class GameManager:
     def __init__(self):

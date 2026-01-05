@@ -1,7 +1,7 @@
 from flask import request
-from flask_socketio import emit, join_room, leave_room
-from extensions import socketio, game_manager
-from models import Player
+from flask_socketio import emit, join_room
+from src.extensions import socketio, game_manager
+from src.models import Player
 
 @socketio.on('connect')
 def connect():
