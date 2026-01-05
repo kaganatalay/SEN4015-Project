@@ -1,13 +1,16 @@
 const socket = io();
 
-// --- State Variables ---
 let mySessionId = null;
 let currentGameId = null;
 let currentDrawerId = null;
 let isDrawing = false;
-let drawingHistory = []; // Stores lines to handle window resizing
+let drawingHistory = [];
 
-// --- DOM Elements ---
+const INTERNAL_WIDTH = 400;
+const INTERNAL_HEIGHT = 400;
+const TARGET_ASPECT_RATIO = INTERNAL_WIDTH / INTERNAL_HEIGHT;
+
+// DOM Elements
 const screens = {
   login: document.getElementById("login-screen"),
   lobby: document.getElementById("lobby-screen"),
@@ -21,7 +24,7 @@ const btnClear = document.getElementById("btn-clear");
 const chatInput = document.getElementById("guess-input");
 const chatBtn = document.getElementById("btn-chat-submit");
 
-// --- Navigation ---
+// Navigation
 function showScreen(name) {
   Object.values(screens).forEach((s) => s.classList.remove("active"));
   screens[name].classList.add("active");
@@ -31,7 +34,7 @@ function showScreen(name) {
   }
 }
 
-// --- Socket Event Listeners ---
+// Event Listeners
 
 socket.on("connect", () => console.log("Connected"));
 
@@ -42,7 +45,6 @@ socket.on("game_joined", (data) => {
   document.getElementById("lobby-room-code").innerText = currentGameId;
   updateLobbyList(data.players);
   showScreen("lobby");
-  // Ensure overlay is gone if we just joined/rejoined
   overlay.classList.add("hidden");
 });
 
@@ -53,12 +55,11 @@ socket.on("game_closed", (data) => {
   resetGame();
 });
 
-// 2. Game Start (The Source of Truth)
+// 2. Game Start
 socket.on("game_started", (data) => {
-  // FORCE RESET STATE: This fixes the "Admin started while I was on overlay" bug
   overlay.classList.add("hidden");
-  drawingHistory = []; // Clear history for new round
-  ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
+  drawingHistory = [];
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
   messagesDiv.innerHTML = "";
 
   currentDrawerId = data.drawer_id;
@@ -71,38 +72,32 @@ socket.on("game_started", (data) => {
   secretWordEl.innerText = data.word;
 
   if (amIDrawing) {
-    // Drawer State
     roleTextEl.innerText = "✏️ IT'S YOUR TURN TO DRAW!";
     roleTextEl.style.color = "#22c55e";
     secretWordEl.style.color = "#22c55e";
     document.getElementById("canvas-container").classList.remove("locked");
-
-    // Show Clear Button
     btnClear.style.display = "block";
-
-    // Disable Chat
     chatInput.disabled = true;
     chatBtn.disabled = true;
     chatInput.placeholder = "You are drawing...";
   } else {
-    // Guesser State
     roleTextEl.innerText = `👀 GUESS WHAT ${data.drawer} IS DRAWING`;
     roleTextEl.style.color = "#a1a1aa";
     secretWordEl.style.color = "#ffffff";
     document.getElementById("canvas-container").classList.add("locked");
-
-    // Hide Clear Button
     btnClear.style.display = "none";
-
-    // Enable Chat
     chatInput.disabled = false;
     chatBtn.disabled = false;
     chatInput.placeholder = "Type your guess here...";
   }
 
   addMessage("Round Started!", "msg-system");
+
+  canvas.width = INTERNAL_WIDTH;
+  canvas.height = INTERNAL_HEIGHT;
+
   showScreen("game");
-  resizeCanvas(); // Ensure canvas is sized correctly at start
+  resizeCanvas();
 });
 
 // 3. Round End
@@ -142,7 +137,7 @@ socket.on("draw_line", (data) => {
   drawRemote(data.x, data.y, "line");
 });
 
-// --- User Actions ---
+// User Actions
 
 function joinGame() {
   const username = document.getElementById("username").value.trim();
@@ -178,17 +173,14 @@ function backToLobby() {
 }
 
 function clearCanvas() {
-  // Only drawer can click this because we hid it for others,
-  // but good to check state anyway
   if (mySessionId === currentDrawerId) {
     socket.emit("clear_board", { game_id: currentGameId });
-    // Local clear happens via socket event to keep sync
   }
 }
 
 function sendGuess(e) {
   e.preventDefault();
-  if (mySessionId === currentDrawerId) return; // Double check
+  if (mySessionId === currentDrawerId) return;
 
   const msg = chatInput.value.trim();
   if (!msg) return;
@@ -197,7 +189,7 @@ function sendGuess(e) {
   chatInput.value = "";
 }
 
-// --- Helper Functions ---
+// Helper Functions
 
 function updateLobbyList(players) {
   const list = document.getElementById("player-list");
@@ -238,40 +230,60 @@ function addMessage(text, type = "msg-chat") {
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
-// --- Canvas Logic (With Resize History) ---
+// Canvas Logic
 
 function resizeCanvas() {
   const container = document.getElementById("canvas-container");
   if (container && container.clientWidth > 0) {
-    canvas.width = container.clientWidth;
-    canvas.height = container.clientHeight;
-    // Redraw everything from history
-    redrawHistory();
+    const availWidth = container.clientWidth;
+    const availHeight = container.clientHeight;
+
+    // 1. Calculate the CSS display size (same aspect ratio logic)
+    let cssWidth = availWidth;
+    let cssHeight = availWidth / TARGET_ASPECT_RATIO;
+
+    if (cssHeight > availHeight) {
+      cssHeight = availHeight;
+      cssWidth = availHeight * TARGET_ASPECT_RATIO;
+    }
+
+    // 2. Apply ONLY to CSS (Stretch the image)
+    canvas.style.width = `${cssWidth}px`;
+    canvas.style.height = `${cssHeight}px`;
   }
 }
 
-// This solves the issue of canvas wiping on resize
 window.addEventListener("resize", () => {
-  // Debounce slightly if needed, but direct call is usually fine for this complexity
   resizeCanvas();
 });
 
 function redrawHistory() {
-  ctx.beginPath(); // Reset context state
+  ctx.beginPath();
   drawingHistory.forEach((step) => {
     drawRemote(step.x, step.y, step.type);
   });
 }
 
 function getPos(e) {
-  const rect = canvas.getBoundingClientRect();
+  const rect = canvas.getBoundingClientRect(); // Get CSS size/position
+
   const cx = e.touches ? e.touches[0].clientX : e.clientX;
   const cy = e.touches ? e.touches[0].clientY : e.clientY;
+
+  // 1. Get mouse position relative to the CSS element
+  const cssX = cx - rect.left;
+  const cssY = cy - rect.top;
+
+  // 2. Scale it to the internal resolution (800x600)
+  // Formula: (MousePos / CSS_Size) * Internal_Size
+  const scaleX = INTERNAL_WIDTH / rect.width;
+  const scaleY = INTERNAL_HEIGHT / rect.height;
+
   return {
-    x: cx - rect.left,
-    y: cy - rect.top,
-    normX: (cx - rect.left) / canvas.width,
-    normY: (cy - rect.top) / canvas.height,
+    x: cssX * scaleX, // Example: Mouse at 150px on a 300px wide phone -> becomes 400 internal
+    y: cssY * scaleY,
+    normX: (cssX * scaleX) / INTERNAL_WIDTH,
+    normY: (cssY * scaleY) / INTERNAL_HEIGHT,
   };
 }
 
@@ -280,9 +292,7 @@ function startDraw(e) {
   isDrawing = true;
   const p = getPos(e);
 
-  // Store locally
   drawingHistory.push({ type: "start", x: p.normX, y: p.normY });
-
   localDraw(p.x, p.y, "start");
   socket.emit("draw_start", { game_id: currentGameId, x: p.normX, y: p.normY });
 }
@@ -293,9 +303,12 @@ function moveDraw(e) {
 
   const p = getPos(e);
 
-  // Store locally
-  drawingHistory.push({ type: "line", x: p.normX, y: p.normY });
+  // Boundary check: don't draw if mouse slips off the canvas element
+  if (p.x < 0 || p.x > canvas.width || p.y < 0 || p.y > canvas.height) {
+    return;
+  }
 
+  drawingHistory.push({ type: "line", x: p.normX, y: p.normY });
   localDraw(p.x, p.y, "line");
   socket.emit("draw_line", { game_id: currentGameId, x: p.normX, y: p.normY });
 }
@@ -318,6 +331,7 @@ function localDraw(x, y, type) {
 }
 
 function drawRemote(normX, normY, type) {
+  // Convert normalized back to local pixels
   localDraw(normX * canvas.width, normY * canvas.height, type);
 }
 
