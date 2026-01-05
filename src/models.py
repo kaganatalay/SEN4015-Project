@@ -1,9 +1,10 @@
 import uuid
 import random
+import os
 
 class Player:
     def __init__(self, session_id, username, is_admin=False):
-        self.session_id = session_id  # The unique socket ID for this connection
+        self.session_id = session_id 
         self.username = username
         self.score = 0
         self.is_admin = is_admin
@@ -20,31 +21,39 @@ class Player:
         return f"<Player {self.username} (Admin: {self.is_admin})>"
 
 class Game:
-    WORDS = [
-        "araba", "bilgisayar", "telefon", "uçak", "helikopter",
-        "gemi", "bisiklet", "motosiklet", "tren", "otobüs",
-        "kedi", "köpek", "fil", "zürafa", "aslan",
-        "kaplan", "ayı", "tavşan", "balık", "kuş",
-        "elma", "armut", "muz", "çilek", "karpuz",
-        "pizza", "hamburger", "dondurma", "pasta", "ekmek",
-        "ev", "okul", "hastane", "köprü", "cami",
-        "kale", "çadır", "apartman", "fabrika", "stadyum",
-        "gözlük", "saat", "ayakkabı", "şapka", "çanta",
-        "kamera", "televizyon", "radyo", "gitar", "piyano",
-        "doktor", "polis", "itfaiyeci", "öğretmen", "aşçı",
-        "pilot", "ressam", "yüzücü", "futbolcu", "asker",
-        "güneş", "ay", "yıldız", "bulut", "yağmur",
-        "kar", "şimşek", "gökkuşağı", "deniz", "dağ"
-    ]
+    WORDS = []
+
+    @staticmethod
+    def load_words(filename="words.txt"):
+        if not os.path.exists(filename):
+            raise FileNotFoundError(f"❌ ERROR: The file '{filename}' was not found. Please create it in the root directory.")
+
+        try:
+            with open(filename, "r", encoding="utf-8") as f:
+                words = [line.strip() for line in f if line.strip()]
+            
+            if not words:
+                raise ValueError(f"❌ ERROR: The file '{filename}' exists but is empty.")
+                
+            print(f"✅ Successfully loaded {len(words)} words from {filename}.")
+            return words
+            
+        except Exception as e:
+            # Catch other permission/read errors and crash
+            raise RuntimeError(f"❌ ERROR: Could not read '{filename}': {e}")
 
     def __init__(self):
-        self.id = str(uuid.uuid4())[:4].upper()  # Simple short ID
+        self.id = str(uuid.uuid4())[:4].upper()
         self.creator_sid = None
-        self.players: dict[str, Player] = {}  # session_id: Player
+        self.players: dict[str, Player] = {}
         self.is_game_active = False
         self.current_drawer = None
         self.current_word = ""
         self.guessed_players = set()
+
+        # If this fails, the application will crash here.
+        if not Game.WORDS:
+            Game.WORDS = self.load_words()
 
     def add_player(self, player: Player):        
         if (player.is_admin and any(p.is_admin for p in self.players.values())):
@@ -69,7 +78,6 @@ class Game:
         self.guessed_players.clear()
 
         self.current_drawer = random.choice(player_list)
-
         self.current_word = random.choice(self.WORDS)
 
         return {
@@ -89,7 +97,6 @@ class Game:
         target_word = self.current_word.lower()
 
         if clean_guess == target_word:
-
             winner = self.players[session_id]
             winner.score += 10
             self.is_game_active = False
