@@ -5,8 +5,7 @@ from src.models import Player
 
 @socketio.on('connect')
 def connect():
-    # User connected - no action needed
-    pass
+    print(f"Client connected: {getattr(request, 'sid')}")
 
 @socketio.on('join_game')
 def join_game(data):
@@ -106,6 +105,8 @@ def leave_game(data):
 @socketio.on('disconnect')
 def disconnect():
     sid = getattr(request, 'sid')
+    print(f"Client disconnected: {sid}")
+
     games_to_check = list(game_manager.games.values())
     for game in games_to_check:
         if sid in game.players:

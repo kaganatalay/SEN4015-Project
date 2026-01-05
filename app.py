@@ -13,15 +13,15 @@ import src.socket_events
 def index():
     return render_template('index.html')
 
-@app.route('/api/health')
+@app.route('/health')
 def health():
     return jsonify({
         "status": "running",
-        "games": len(game_manager.games)
+        "games": len(game_manager.games),
+        "players": sum(len(g.players) for g in game_manager.games.values())
     })
 
 if __name__ == '__main__':
     port = 5000
-
-    print(f"Starting server on port {port}...")
+    print(f"Starting server on port {port}.")
     socketio.run(app, host='0.0.0.0', port=port)

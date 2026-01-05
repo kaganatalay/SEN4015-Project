@@ -20,8 +20,6 @@ class Player:
         return f"<Player {self.username} (Admin: {self.is_admin})>"
 
 class Game:
-    """Class representating a single drawing and guessing game session."""
-
     WORDS = [
         "araba", "bilgisayar", "telefon", "uçak", "helikopter",
         "gemi", "bisiklet", "motosiklet", "tren", "otobüs",
@@ -48,38 +46,30 @@ class Game:
         self.current_word = ""
         self.guessed_players = set()
 
-    def add_player(self, player: Player):
-        """Oyuna yeni bir oyuncu ekler."""
-        
+    def add_player(self, player: Player):        
         if (player.is_admin and any(p.is_admin for p in self.players.values())):
             player.is_admin = False
             
         self.players[player.session_id] = player
     
     def remove_player(self, session_id):
-        """Oyuncuyu oyundan çıkarır."""
         if session_id in self.players:
             del self.players[session_id]
 
     def get_all_players(self):
-        """Frontend'e göndermek için oyuncu listesini döndürür."""
         return [p.to_dict() for p in self.players.values()]
 
     def start_new_round(self):
-        """Yeni bir tur başlatır: Çizen ve Kelime seçer."""
         player_list = list(self.players.values())
 
-        # Mantıken en az 2 kişi lazım, yoksa oyun başlamaz
         if len(player_list) < 2:
-            return None  # Veya hata fırlatabiliriz
+            return None
 
         self.is_game_active = True
         self.guessed_players.clear()
 
-        # 1. Rastgele Çizen Seç (İleride sırayla yapılabilir, şimdilik rastgele)
         self.current_drawer = random.choice(player_list)
 
-        # 2. Rastgele Kelime Seç
         self.current_word = random.choice(self.WORDS)
 
         return {
@@ -92,7 +82,6 @@ class Game:
         if not self.is_game_active:
             return None
 
-        # Check if message is from the drawer (prevent cheating/spoiling)
         if self.current_drawer and session_id == self.current_drawer.session_id:
             return None 
 
@@ -103,7 +92,7 @@ class Game:
 
             winner = self.players[session_id]
             winner.score += 10
-            self.is_game_active = False # End the round immediately
+            self.is_game_active = False
             
             return {
                 "type": "ROUND_WIN",
@@ -111,5 +100,4 @@ class Game:
                 "word": self.current_word
             }
 
-        # Treat as chat message
         return {"type": "CHAT_MESSAGE", "message": guess_text}
